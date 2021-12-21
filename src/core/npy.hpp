@@ -300,7 +300,7 @@ namespace poppel::npy {
             ss << "'fortran_order': " << (header.fortran_order ? "True" : "False") << ", ";
             ss << "'shape': (" << gen_shape(header.shape) << "), ";
 
-            ss << "}";
+            ss << '}';
 
             auto ret = ss.str();
 
@@ -359,9 +359,7 @@ namespace poppel::npy {
                 throw std::runtime_error("Cannot find value for shape in header.");
             }
             auto sv_shape = trim(sv_shape_to_end.substr(loc_shape_l + 1, loc_shape_r - loc_shape_l - 1));
-            std::vector<Size> shape;
-            {
-            }
+            auto shape = parse_shape(sv_shape);
 
             return Header { dtype, fortran_order, std::move(shape) };
         }
@@ -435,18 +433,28 @@ namespace poppel::npy {
     }
 
     // Core function to load header only.
+    // Precondition:
+    // - is points to the beginning of the file.
     inline Header load_header(std::istream& is) {
         return internal::parse_header(internal::read_header(is));
     }
 
-    // Core function to load all data.
+    // Core function to load data portion only.
+    // Precondition:
+    // - is points to the start of the data portion.
+    // - data points to a buffer of at least numbytes bytes.
+    inline void load_data(std::istream& is, char* data, Size numbytes) {
+        is.read(data, numbytes);
+    }
+
+    // Core function to load all data to a managed buffer.
     inline NumpyArray load(std::istream& is) {
         NumpyArray ret;
         ret.header = load_header(is);
 
-        const auto data_len = ret.header.numbytes();
-        ret.rawdata.resize(data_len);
-        is.read(ret.rawdata.data(), data_len);
+        const auto numbytes = ret.header.numbytes();
+        ret.rawdata.resize(numbytes);
+        load_data(is, ret.rawdata.data(), numbytes);
 
         return ret;
     }
@@ -542,39 +550,39 @@ namespace poppel::npy {
     // Load scalar data.
     template< typename T, std::enable_if_t< internal::is_scalar<T> >* = nullptr >
     inline void load(std::istream& is, T& data) {
-        NumpyArray numpy = load(is);
-        if(numpy.header.shape.size() != 0) {
+        Header header = load_header(is);
+        if(header.shape.size() != 0) {
             throw std::runtime_error("array is not scalar (0-dimensional)");
         }
-        if(numpy.header.dtype != internal::dtype(T{})) {
+        if(header.dtype != internal::dtype(T{})) {
             throw std::runtime_error("array dtype is not match");
         }
-        data = *numpy.data<T>();
+        load_data(is, reinterpret_cast<char*>(&data), 1);
     }
     // Load vector of scalar.
     template< typename T, std::enable_if_t< internal::is_scalar<T> >* = nullptr >
     inline void load(std::istream& is, std::vector<T>& data) {
-        NumpyArray numpy = load(is);
-        if(numpy.header.shape.size() != 1) {
+        Header header = load_header(is);
+        if(header.shape.size() != 1) {
             throw std::runtime_error("array is not 1-dimensional");
         }
-        if(numpy.header.dtype != internal::dtype(T{})) {
+        if(header.dtype != internal::dtype(T{})) {
             throw std::runtime_error("array dtype is not match");
         }
-        data.resize(numpy.header.shape[0]);
-        std::copy(numpy.data<T>(), numpy.data<T>() + numpy.header.shape[0], data.begin());
+        data.resize(header.shape[0]);
+        load_data(is, reinterpret_cast<char*>(data.data()), header.numbytes());
     }
     // Load string.
     inline void load(std::istream& is, std::string& data) {
-        NumpyArray numpy = load(is);
-        if(numpy.header.shape.size() != 1) {
+        Header header = load_header(is);
+        if(header.shape.size() != 1) {
             throw std::runtime_error("array is not 1-dimensional");
         }
-        if(numpy.header.dtype != internal::dtype(char{})) {
+        if(header.dtype != internal::dtype(char{})) {
             throw std::runtime_error("array dtype is not match");
         }
-        data.resize(numpy.header.shape[0]);
-        std::copy(numpy.data<char>(), numpy.data<char>() + numpy.header.shape[0], data.begin());
+        data.resize(header.shape[0]);
+        load_data(is, data.data(), header.numbytes());
     }
 
     template< typename T >
