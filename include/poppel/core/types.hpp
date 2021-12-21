@@ -11,10 +11,14 @@
 #include <cstdint>
 #include <filesystem>
 
+#include <nlohmann/json.hpp>
+
 namespace poppel {
 
     using Index = std::ptrdiff_t;
     using Size  = std::ptrdiff_t;
+
+    using Json = nlohmann::json;
 
     namespace core {
         // Meta data.
@@ -24,14 +28,14 @@ namespace poppel {
             Unknown,
             File,
             Group,
-            DataSet,
+            Dataset,
             Raw,
         };
         constexpr const char* text(NodeType val) {
             switch (val) {
                 case NodeType::File:    return "file";
                 case NodeType::Group:   return "group";
-                case NodeType::DataSet: return "dataset";
+                case NodeType::Dataset: return "dataset";
                 case NodeType::Raw:     return "raw";
                 default:                return "";
             }
@@ -42,7 +46,7 @@ namespace poppel {
             } else if (name == "group") {
                 return NodeType::Group;
             } else if (name == "dataset") {
-                return NodeType::DataSet;
+                return NodeType::Dataset;
             } else if (name == "raw") {
                 return NodeType::Raw;
             } else {
@@ -60,7 +64,12 @@ namespace poppel {
         // In file system, it is a directory containing the required metadata.
         struct Node {
             NodeMeta meta;
-            std::filesystem::path path;
+            std::filesystem::path root;
+            std::filesystem::path relpath;
+
+            auto path() const {
+                return relpath.empty() ? root : root / relpath;
+            }
         };
 
         enum class FileOpenState {
@@ -75,7 +84,7 @@ namespace poppel {
         };
 
 
-        struct DataSetMeta {
+        struct DatasetMeta {
             std::vector<Size> shape;
             Size              wordsize = 1;
             // Whether the first dimension is the fastest changing one, also known as column major for matrix.

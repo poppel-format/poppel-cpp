@@ -13,24 +13,36 @@ namespace poppel::core {
     void assert_file_open(const FileStates& filestates);
     void assert_file_writable(const FileStates& filestates);
 
+    bool is_valid_node_normalized_relpath(const std::filesystem::path& normalized_relpath);
+    void assert_is_valid_node_normalized_relpath(const std::filesystem::path& normalized_relpath);
+
+    bool is_node_group(const Node& node);
+    void assert_is_node_group(const Node& node);
+
+    bool is_node_dataset(const Node& node);
+    void assert_is_node_dataset(const Node& node);
+
+    void assert_exists_directory(const std::filesystem::path& path);
+    void assert_not_exists(const std::filesystem::path& path);
+
     //----------------------------------
     // Node operations.
     //----------------------------------
 
-    // Warning: Does not test if inside poppel directory. Only test if the object can be an poppel object (i.e. a directory).
-    bool is_poppel_dir(const std::filesystem::path& path);
-    bool contains_dir(const Node& node, const std::filesystem::path& name, const FileStates& filestates);
-
     NodeMeta read_node_meta(const std::filesystem::path& nodepath, const FileStates& filestates);
     void write_node_meta(const std::filesystem::path& nodepath, const NodeMeta& meta, const FileStates& filestates);
 
+    Node get_file_node(const std::filesystem::path& name);
+    Node create_file_node(const std::filesystem::path& name);
+    Node require_file_node(const std::filesystem::path& name);
+    void delete_file_node(const std::filesystem::path& name);
+
     // If directory does not exist or node type does not match, an error is thrown.
-    Node get_node(const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype);
-    Node get_node(const Node& node, const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype);
-    Node create_node(const Node& node, const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype);
+    Node get_node    (const Node& node, const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype);
+    Node create_node (const Node& node, const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype);
     // If the required node does not exist, a new node is created.
     Node require_node(const Node& node, const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype);
-    void delete_node(const Node& node, const std::filesystem::path& name, const FileStates& filestates);
+    void delete_node (const Node& node, const std::filesystem::path& name, const FileStates& filestates);
 
     Attribute get_attribute(const Node& node, const FileStates& filestates);
 
@@ -38,7 +50,7 @@ namespace poppel::core {
     // DataSet operations.
     //----------------------------------
 
-    DataSetMeta load_npy_meta(const std::filesystem::path& dataset);
+    DatasetMeta load_npy_meta(const std::filesystem::path& dataset);
 
     void load_to(bool& val,                  const std::filesystem::path& dataset);
     void load_to(std::int8_t& val,           const std::filesystem::path& dataset);
@@ -113,6 +125,8 @@ namespace poppel::core {
     // Attribute operations.
     //----------------------------------
 
+    Json load_attr(const Attribute& attr);
+    void save_attr(const Json& val, const Attribute& attr); 
 
 } // namespace poppel::core
 

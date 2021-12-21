@@ -35,44 +35,68 @@ namespace poppel::core {
         }
     }
 
+
+    // Validate node relative (normalized) path.
+    //
+    // Precondition:
+    // - Path must be normalized before passed to this function. (not checked)
+    //
+    // Note:
+    // - Path does not need to exist.
+    // - Path must be relative.                                 (So no "/var" or "C:\\Program Files".)
+    // - Path must not be empty, nor start with dot or dot-dot. (So no "", "." or "../treasure".)
+    // - Path must have filename portion.                       (So no "trailing\\" or "trailing/".)
+    bool is_valid_node_normalized_relpath(const std::filesystem::path& normalized_relpath) {
+        if(normalized_relpath.is_absolute() || normalized_relpath.empty()) {
+            return false;
+        }
+        auto pp0 = normalized_relpath.begin(); // Can be dereferenced because normalized_relpath is not empty.
+        if(*pp0 == "." || *pp0 == "..") {
+            return false;
+        }
+        return normalized_relpath.has_filename();
+    }
+    void assert_is_valid_node_normalized_relpath(const std::filesystem::path& normalized_relpath) {
+        if(!is_valid_node_normalized_relpath(normalized_relpath)) {
+            throw Exception("[" + normalized_relpath.string() + "] is not a valid relative path.");
+        }
+    }
+
+    bool is_node_group(const Node& node) {
+        return node.meta.type == NodeType::Group || node.meta.type == NodeType::File;
+    }
+    void assert_is_node_group(const Node& node) {
+        if(!is_node_group(node)) {
+            throw Exception("Node is not a group or file.");
+        }
+    }
+
+    bool is_node_dataset(const Node& node) {
+        return node.meta.type == NodeType::Dataset;
+    }
+    void assert_is_node_dataset(const Node& node) {
+        if(!is_node_dataset(node)) {
+            throw Exception("Node is not a dataset.");
+        }
+    }
+
+    void assert_exists_directory(const std::filesystem::path& path) {
+        if (!std::filesystem::is_directory(path)) {
+            throw Exception("Path is not a directory.");
+        }
+    }
+    void assert_not_exists(const std::filesystem::path& path) {
+        if (std::filesystem::exists(path)) {
+            throw Exception("Path is already occupied.");
+        }
+    }
+
+
     //----------------------------------
     // Node operations.
     //----------------------------------
 
-    // Warning: Does not test if inside poppel directory. Only test if the object can be an poppel object (i.e. a directory).
-    bool is_poppel_dir(const std::filesystem::path& path) {
-        return std::filesystem::is_directory(path);
-    }
-    void assert_is_poppel_dir(const std::filesystem::path& path) {
-        if (!is_poppel_dir(path)) {
-            throw Exception("Path is not a directory.");
-        }
-    }
-
-    bool contains_dir(const Node& node, const std::filesystem::path& name, const FileStates& filestates) {
-        assert_file_open(filestates);
-        if(name == ".") {
-            return true;
-        }
-        if(name == "") {
-            return false;
-        }
-        const auto directory = node.path / name;
-        return is_poppel_dir(directory);
-    }
-    void assert_contains_dir(const Node& node, const std::filesystem::path& name, const FileStates& filestates) {
-        if(!contains_dir(node, name, filestates)) {
-            throw Exception("Directory does not exist.");
-        }
-    }
-    void assert_not_contains_dir(const Node& node, const std::filesystem::path& name, const FileStates& filestates) {
-        if(contains_dir(node, name, filestates)) {
-            throw Exception("Directory already exists.");
-        }
-    }
-
-    NodeMeta read_node_meta(const std::filesystem::path& nodepath, const FileStates& filestates) {
-        assert_file_open(filestates);
+    NodeMeta read_node_meta(const std::filesystem::path& nodepath) {
         std::ifstream file(nodepath / "poppel.json");
         if (!file.is_open()) {
             throw Exception("Unable to open poppel.json file.");
@@ -84,8 +108,7 @@ namespace poppel::core {
             node_type(json["type"]),
         };
     }
-    void write_node_meta(const std::filesystem::path& nodepath, const NodeMeta& meta, const FileStates& filestates) {
-        assert_file_writable(filestates);
+    void write_node_meta(const std::filesystem::path& nodepath, const NodeMeta& meta) {
         std::ofstream file(nodepath / "poppel.json");
         if (!file.is_open()) {
             throw Exception("Unable to open poppel.json file.");
@@ -96,44 +119,85 @@ namespace poppel::core {
         file << json;
     }
 
-    Node get_node(const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype) {
-        assert_file_open(filestates);
-        assert_is_poppel_dir(name);
+    Node get_file_node(const std::filesystem::path& name) {
+        assert_exists_directory(name);
 
-        auto meta = read_node_meta(name, filestates);
-        if(meta.type != nodetype) {
-            throw Exception("Node is not of the expected type.");
+        auto meta = read_node_meta(name);
+        if(meta.type != NodeType::File) {
+            throw Exception("Node is not of file type.");
         }
 
-        return Node { meta, std::move(name) };
+        return Node { meta, std::move(name), };
     }
+    Node create_file_node(const std::filesystem::path& name) {
+        assert_not_exists(name);
+
+        std::filesystem::create_directories(name);
+        NodeMeta meta;
+        meta.type = NodeType::File;
+        write_node_meta(name, meta);
+
+        return Node { meta, std::move(name), };
+    }
+    Node require_file_node(const std::filesystem::path& name) {
+        if(std::filesystem::is_directory(name)) {
+            return get_file_node(name);
+        }
+        else {
+            return create_file_node(name);
+        }
+    }
+    void delete_file_node(const std::filesystem::path& name) {
+        assert_exists_directory(name);
+        std::filesystem::remove_all(name);
+    }
+
     Node get_node(const Node& node, const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype) {
-        return get_node(node.path / name, filestates, nodetype);
+        assert_file_open(filestates);
+        assert_is_node_group(node);
+        auto normalized_name = name.lexically_normal();
+        assert_is_valid_node_normalized_relpath(normalized_name);
+
+        auto dirpath = node.path() / normalized_name;
+        assert_exists_directory(dirpath);
+
+        auto meta = read_node_meta(dirpath);
+        if(meta.type != nodetype) {
+            throw Exception("Node is not of expected type.");
+        }
+
+        return Node { meta, node.root, node.relpath / normalized_name, };
     }
     // Will not create nodes for intermediate directories.
     Node create_node_immediate(const Node& node, const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype) {
         assert_file_writable(filestates);
-        assert_not_contains_dir(node, name, filestates);
-        auto directorypath = node.path / name;
+        assert_is_node_group(node);
+        auto normalized_name = name.lexically_normal();
+        assert_is_valid_node_normalized_relpath(normalized_name);
 
-        std::filesystem::create_directory(directorypath);
+        auto dirpath = node.path() / normalized_name;
+        assert_not_exists(dirpath);
+
+        std::filesystem::create_directory(dirpath);
         NodeMeta meta;
         meta.type = nodetype;
 
-        return Node { meta, std::move(directorypath) };
+        return Node { meta, node.root, normalized_name, };
     }
     // Note:
     // - All intermediate directories must be groups or non-exist.
     Node require_node(const Node& node, const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype) {
         assert_file_open(filestates);
-        const auto& relpath = name;
+        assert_is_node_group(node);
+        auto normalized_name = name.lexically_normal();
+        assert_is_valid_node_normalized_relpath(normalized_name);
 
         auto cur_node = node;
-        for(auto it = relpath.begin(); it != relpath.end(); ++it) {
-            const NodeType required_node_type = std::next(it) == relpath.end() ? nodetype : NodeType::Group;
+        for(auto it = normalized_name.begin(); it != normalized_name.end(); ++it) {
+            const NodeType required_node_type = std::next(it) == normalized_name.end() ? nodetype : NodeType::Group;
             const auto& part = *it;
 
-            if(contains_dir(cur_node, part, filestates)) {
+            if(std::filesystem::is_directory(cur_node.path() / part)) {
                 cur_node = get_node(cur_node, part, filestates, required_node_type);
             } else {
                 cur_node = create_node_immediate(cur_node, part, filestates, required_node_type);
@@ -143,25 +207,31 @@ namespace poppel::core {
     }
     Node create_node(const Node& node, const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype) {
         assert_file_writable(filestates);
-        const auto relpath = std::filesystem::path(name);
-        const auto relpathparent = relpath.parent_path();
+        assert_is_node_group(node);
+        auto normalized_name = name.lexically_normal();
+        assert_is_valid_node_normalized_relpath(normalized_name);
 
-        if(relpathparent != relpath) {
+        auto cur_node = node;
+        if(normalized_name.has_parent_path()) {
             // Has parent path.
-            require_node(node, relpathparent, filestates, NodeType::Group);
+            cur_node = require_node(cur_node, normalized_name.parent_path(), filestates, NodeType::Group);
         }
-        create_node_immediate(node, relpath, filestates, nodetype);
+        create_node_immediate(cur_node, normalized_name.filename(), filestates, nodetype);
     }
     void delete_node(const Node& node, const std::filesystem::path& name, const FileStates& filestates) {
         assert_file_writable(filestates);
-        assert_contains_dir(node, name, filestates);
-        const auto directorypath = node.path / name;
-        std::filesystem::remove_all(directorypath);
+        assert_is_node_group(node);
+        auto normalized_name = name.lexically_normal();
+        assert_is_valid_node_normalized_relpath(normalized_name);
+
+        auto dirpath = node.path() / normalized_name;
+        assert_exists_directory(dirpath);
+        std::filesystem::remove_all(dirpath);
     }
 
     Attribute get_attribute(const Node& node, const FileStates& filestates) {
         assert_file_open(filestates);
-        auto jsonfilepath = node.path / "attributes.json";
+        auto jsonfilepath = node.root / node.relpath / "attributes.json";
 
         if(!std::filesystem::exists(jsonfilepath)) {
             if(filestates.open_state == FileOpenState::ReadOnly) {
@@ -179,9 +249,9 @@ namespace poppel::core {
     // DataSet operations.
     //----------------------------------
 
-    DataSetMeta load_npy_meta(const std::filesystem::path& dataset) {
-        npy::Header header = npy::load_header(dataset);
-        DataSetMeta meta;
+    DatasetMeta load_npy_meta(const std::filesystem::path& npyfile) {
+        npy::Header header = npy::load_header(npyfile);
+        DatasetMeta meta;
         meta.shape         = header.shape;
         meta.wordsize      = header.dtype.itemsize;
         meta.fortran_order = header.fortran_order;
@@ -247,5 +317,27 @@ namespace poppel::core {
 
     void save_from(const std::string& val, const std::filesystem::path& dataset) { npy::save(dataset, val); }
 
+    //----------------------------------
+    // DataSet operations.
+    //----------------------------------
+
+    Json load_attr(const Attribute& attr) {
+        std::ifstream ifs(attr.jsonfile);
+        if (!ifs.is_open()) {
+            throw std::runtime_error("Failed to open attribute file: " + attr.jsonfile.string());
+        }
+
+        Json j;
+        ifs >> j;
+        return j;
+    }
+    void save_attr(const Json& val, const Attribute& attr) {
+        std::ofstream ofs(attr.jsonfile);
+        if (!ofs.is_open()) {
+            throw std::runtime_error("Failed to open attribute file: " + attr.jsonfile.string());
+        }
+
+        ofs << val;
+    }
 
 } // namespace poppel::core
