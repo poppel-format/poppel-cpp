@@ -1,3 +1,3 @@
 # Poppel
 
-[Experimental Directory Structure](https://github.com/CINPLA/exdir), but JSON is used for metadata.
+Portable directory structure format, inspired by [exdir]((https://github.com/CINPLA/exdir) and HDF5.

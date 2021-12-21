@@ -4,6 +4,7 @@
 // Types and functions for reading/writing .npy files.
 // Inspired by https://github.com/llohse/libnpy and https://github.com/pmontalb/NpyCpp.
 
+#include <algorithm>
 #include <charconv>
 #include <complex>
 #include <cstddef>
@@ -23,6 +24,8 @@
 #ifdef __cpp_lib_endian
     #include <bit>
 #endif
+
+#include "poppel/core/utilities.hpp"
 
 namespace poppel::npy {
 
@@ -68,6 +71,9 @@ namespace poppel::npy {
             }
         };
         using MaxAlignCharVector = std::vector<char, MaxAlignCharAllocator>;
+
+        template< typename T >
+        constexpr bool is_scalar = std::is_arithmetic_v<T> || std::is_same_v<T, std::complex<float>> || std::is_same_v<T, std::complex<double>>;
     } // namespace internal
 
     struct Version {
@@ -86,6 +92,13 @@ namespace poppel::npy {
         char kind = 0;
         internal::Size itemsize = 0;
     };
+    constexpr bool operator==(const Dtype& lhs, const Dtype& rhs) {
+        return (lhs.byteorder == rhs.byteorder) && (lhs.kind == rhs.kind) && (lhs.itemsize == rhs.itemsize);
+    }
+    constexpr bool operator!=(const Dtype& lhs, const Dtype& rhs) {
+        return !(lhs == rhs);
+    }
+
     struct Header {
         Dtype dtype;
         bool fortran_order = false;
@@ -107,11 +120,11 @@ namespace poppel::npy {
         Header header;
         internal::MaxAlignCharVector rawdata;
 
-        template< typename T >
+        template< typename T = char >
         auto data() noexcept {
             return reinterpret_cast<T*>(rawdata.data());
         }
-        template< typename T >
+        template< typename T = char >
         auto data() const noexcept {
             return reinterpret_cast<const T*>(rawdata.data());
         }
@@ -144,23 +157,10 @@ namespace poppel::npy {
         constexpr Dtype dtype(std::complex<float> ) { return { char_host_endian, 'c', 8 }; }
         constexpr Dtype dtype(std::complex<double>) { return { char_host_endian, 'c', 16 }; }
 
-        // Integral type normalization.
-        template< std::size_t N, bool Signed >
-        struct NormalizedIntegral;
-        template<> struct NormalizedIntegral<1, true> { using Type = std::int8_t; };
-        template<> struct NormalizedIntegral<2, true> { using Type = std::int16_t; };
-        template<> struct NormalizedIntegral<4, true> { using Type = std::int32_t; };
-        template<> struct NormalizedIntegral<8, true> { using Type = std::int64_t; };
-        template<> struct NormalizedIntegral<1, false> { using Type = std::uint8_t; };
-        template<> struct NormalizedIntegral<2, false> { using Type = std::uint16_t; };
-        template<> struct NormalizedIntegral<4, false> { using Type = std::uint32_t; };
-        template<> struct NormalizedIntegral<8, false> { using Type = std::uint64_t; };
-
         // All other integral types.
         template< typename T, std::enable_if_t< std::is_integral_v< T >>* = nullptr >
         constexpr Dtype dtype(T) {
-            using Type = typename NormalizedIntegral< sizeof(T), std::is_signed_v< T >>::Type;
-            return dtype(Type{});
+            return dtype(core::NormalizedIntegralOf<T>{});
         }
 
         // Format Version 1.0 specification.
@@ -451,20 +451,68 @@ namespace poppel::npy {
         return ret;
     }
 
+    namespace internal {
+        inline std::ofstream open_file_for_save(const std::filesystem::path& filename) {
+            std::ofstream ofs(filename, std::ios::binary);
+            if(!ofs) {
+                throw std::runtime_error("cannot open file for save");
+            }
+        }
+        inline std::ofstream open_file_for_save(std::string_view filename) {
+            return open_file_for_save(std::filesystem::path(filename));
+        }
+
+        inline std::ifstream open_file_for_load(const std::filesystem::path& filename) {
+            std::ifstream ifs(filename, std::ios::binary);
+            if(!ifs) {
+                throw std::runtime_error("cannot open file for load");
+            }
+        }
+        inline std::ifstream open_file_for_load(std::string_view filename) {
+            return open_file_for_load(std::filesystem::path(filename));
+        }
+    } // namespace internal
+
     //----------------------------------
     // Various save functions.
     //----------------------------------
 
     inline void save(const std::filesystem::path& filename, const Header& header, const char* data) {
-        std::ofstream ofs(filename, std::ios::binary);
-        if (!ofs) {
-            throw std::runtime_error("io error: failed to open a file.");
-        }
-
+        auto ofs = internal::open_file_for_save(filename);
         save(ofs, header, data);
     }
     inline void save(std::string_view filename, const Header& header, const char* data) {
-        save(std::filesystem::path(filename), header, data);
+        auto ofs = internal::open_file_for_save(filename);
+        save(ofs, header, data);
+    }
+
+    // Save scalar data.
+    template< typename T, std::enable_if_t< internal::is_scalar<T> >* = nullptr >
+    inline void save(std::ostream& os, T data) {
+        Header header { internal::dtype(data), false, {} };
+        save(os, header, reinterpret_cast<const char*>(&data));
+    }
+    // Save vector of scalar.
+    template< typename T, std::enable_if_t< internal::is_scalar<T> >* = nullptr >
+    inline void save(std::ostream& os, const std::vector<T>& data) {
+        Header header { internal::dtype(T{}), false, { static_cast<internal::Size>(data.size()) } };
+        save(os, header, reinterpret_cast<const char*>(data.data()));
+    }
+    // Save string.
+    inline void save(std::ostream& os, std::string_view data) {
+        Header header { internal::dtype(char{}), false, { static_cast<internal::Size>(data.size()) } };
+        save(os, header, data.data());
+    }
+
+    template< typename T >
+    inline void save(const std::filesystem::path& filename, const T& data) {
+        auto ofs = internal::open_file_for_save(filename);
+        save(ofs, data);
+    }
+    template< typename T >
+    inline void save(std::string_view filename, const T& data) {
+        auto ofs = internal::open_file_for_save(filename);
+        save(ofs, data);
     }
 
     //----------------------------------
@@ -472,23 +520,16 @@ namespace poppel::npy {
     //----------------------------------
 
     inline Header load_header(const std::filesystem::path& filename) {
-        std::ifstream ifs(filename, std::ios::binary);
-        if (!ifs) {
-            throw std::runtime_error("io error: failed to open a file.");
-        }
-
+        auto ifs = internal::open_file_for_load(filename);
         return load_header(ifs);
     }
     inline Header load_header(std::string_view filename) {
-        return load_header(std::filesystem::path(filename));
+        auto ifs = internal::open_file_for_load(filename);
+        return load_header(ifs);
     }
 
     inline NumpyArray load(const std::filesystem::path& filename) {
-        std::ifstream ifs(filename, std::ios::binary);
-        if(!ifs) {
-            throw std::runtime_error("io error: failed to open a file.");
-        }
-
+        auto ifs = internal::open_file_for_load(filename);
         NumpyArray ret;
         ret.header = internal::parse_header(internal::read_header(ifs));
 
@@ -496,6 +537,55 @@ namespace poppel::npy {
     }
     inline NumpyArray load(std::string_view filename) {
         return load(std::filesystem::path(filename));
+    }
+
+    // Load scalar data.
+    template< typename T, std::enable_if_t< internal::is_scalar<T> >* = nullptr >
+    inline void load(std::istream& is, T& data) {
+        NumpyArray numpy = load(is);
+        if(numpy.header.shape.size() != 0) {
+            throw std::runtime_error("array is not scalar (0-dimensional)");
+        }
+        if(numpy.header.dtype != internal::dtype(T{})) {
+            throw std::runtime_error("array dtype is not match");
+        }
+        data = *numpy.data<T>();
+    }
+    // Load vector of scalar.
+    template< typename T, std::enable_if_t< internal::is_scalar<T> >* = nullptr >
+    inline void load(std::istream& is, std::vector<T>& data) {
+        NumpyArray numpy = load(is);
+        if(numpy.header.shape.size() != 1) {
+            throw std::runtime_error("array is not 1-dimensional");
+        }
+        if(numpy.header.dtype != internal::dtype(T{})) {
+            throw std::runtime_error("array dtype is not match");
+        }
+        data.resize(numpy.header.shape[0]);
+        std::copy(numpy.data<T>(), numpy.data<T>() + numpy.header.shape[0], data.begin());
+    }
+    // Load string.
+    inline void load(std::istream& is, std::string& data) {
+        NumpyArray numpy = load(is);
+        if(numpy.header.shape.size() != 1) {
+            throw std::runtime_error("array is not 1-dimensional");
+        }
+        if(numpy.header.dtype != internal::dtype(char{})) {
+            throw std::runtime_error("array dtype is not match");
+        }
+        data.resize(numpy.header.shape[0]);
+        std::copy(numpy.data<char>(), numpy.data<char>() + numpy.header.shape[0], data.begin());
+    }
+
+    template< typename T >
+    inline void load(const std::filesystem::path& filename, T& data) {
+        auto ifs = internal::open_file_for_load(filename);
+        load(ifs, data);
+    }
+    template< typename T >
+    inline void load(std::string_view filename, T& data) {
+        auto ifs = internal::open_file_for_load(filename);
+        load(ifs, data);
     }
 
 } // namespace poppel::npy
