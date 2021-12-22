@@ -216,7 +216,7 @@ namespace poppel::core {
             // Has parent path.
             cur_node = require_node(cur_node, normalized_name.parent_path(), filestates, NodeType::Group);
         }
-        create_node_immediate(cur_node, normalized_name.filename(), filestates, nodetype);
+        return create_node_immediate(cur_node, normalized_name.filename(), filestates, nodetype);
     }
     void delete_node(const Node& node, const std::filesystem::path& name, const FileStates& filestates) {
         assert_file_writable(filestates);

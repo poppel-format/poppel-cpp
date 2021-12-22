@@ -13,7 +13,7 @@ namespace poppel {
     Group Group::require_group(const std::filesystem::path& name) const {
         return Group(core::require_node(node_, name, *pstates_, core::NodeType::Group), pstates_);
     }
-    Group Group::delete_group(const std::filesystem::path& name) const {
+    void Group::delete_group(const std::filesystem::path& name) const {
         core::delete_node(node_, name, *pstates_);
     }
 

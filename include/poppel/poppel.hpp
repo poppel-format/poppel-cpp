@@ -28,14 +28,15 @@ namespace poppel {
         Group(core::Node node, core::FileStates* pstates):
             node_(std::move(node)), pstates_(pstates)
         {}
-        Group(const Group&) = default;
-        Group(Group&&) = default;
+
+        Group& operator=(const Group&) = default;
+        Group& operator=(Group&&     ) = default;
 
         // Group management.
         Group get_group(const std::filesystem::path& name) const;
         Group create_group(const std::filesystem::path& name) const;
         Group require_group(const std::filesystem::path& name) const;
-        Group delete_group(const std::filesystem::path& name) const;
+        void delete_group(const std::filesystem::path& name) const;
 
         // Dataset management.
         Dataset get_dataset(const std::filesystem::path& name) const;
@@ -126,7 +127,7 @@ namespace poppel {
 
             // Set pstates_.
             pstates_ = std::make_unique<core::FileStates>();
-            pstates_->open_state = (mode & Write) ? core::FileStates::OpenState::ReadWrite : core::FileStates::OpenState::ReadOnly;
+            pstates_->open_state = (mode & Write) ? core::FileOpenState::ReadWrite : core::FileOpenState::ReadOnly;
 
             if(std::filesystem::is_directory(path)) {
                 if(mode & Excl) {

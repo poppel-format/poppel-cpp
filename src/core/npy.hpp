@@ -61,6 +61,11 @@ namespace poppel::npy {
             using value_type = char;
             using pointer = value_type*;
 
+            template< typename T >
+            struct rebind {
+                using other = std::allocator<T>;
+            };
+
             static constexpr std::align_val_t align_value { alignof(std::max_align_t) };
 
             pointer allocate(std::size_t n) {
@@ -443,7 +448,7 @@ namespace poppel::npy {
     // Precondition:
     // - is points to the start of the data portion.
     // - data points to a buffer of at least numbytes bytes.
-    inline void load_data(std::istream& is, char* data, Size numbytes) {
+    inline void load_data(std::istream& is, char* data, internal::Size numbytes) {
         is.read(data, numbytes);
     }
 
@@ -465,6 +470,7 @@ namespace poppel::npy {
             if(!ofs) {
                 throw std::runtime_error("cannot open file for save");
             }
+            return ofs;
         }
         inline std::ofstream open_file_for_save(std::string_view filename) {
             return open_file_for_save(std::filesystem::path(filename));
@@ -475,6 +481,7 @@ namespace poppel::npy {
             if(!ifs) {
                 throw std::runtime_error("cannot open file for load");
             }
+            return ifs;
         }
         inline std::ifstream open_file_for_load(std::string_view filename) {
             return open_file_for_load(std::filesystem::path(filename));

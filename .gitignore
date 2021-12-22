@@ -1,3 +1,6 @@
 # Editors and IDEs.
 .vs/
 .vscode/
+
+# Build output.
+build/
