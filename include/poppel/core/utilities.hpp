@@ -18,6 +18,14 @@ namespace poppel::core {
     template< typename T >
     using NormalizedIntegralOf = typename NormalizedIntegral<sizeof(T), std::is_signed_v<T>>::Type;
 
+    // Execute the function on scope exit.
+    template< typename Func >
+    struct ScopeGuard {
+        Func func;
+        ~ScopeGuard() { func(); }
+    };
+    template< typename Func >
+    ScopeGuard(Func) -> ScopeGuard< Func >;
 } // namespace poppel::core
 
 #endif
