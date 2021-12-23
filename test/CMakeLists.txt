@@ -8,7 +8,7 @@ target_include_directories(poppeltest PUBLIC
     ${CMAKE_CURRENT_LIST_DIR}/..
 )
 
-target_link_libraries(poppeltest PRIVATE poppellib)
+target_link_libraries(poppeltest PRIVATE poppel)
 
 find_package(Catch2 CONFIG REQUIRED)
 target_link_libraries(poppeltest PRIVATE Catch2::Catch2)

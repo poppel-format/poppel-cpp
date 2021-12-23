@@ -151,7 +151,9 @@ namespace poppel {
             }
         }
         void close() {
-            pstates_->open_state = core::FileOpenState::Closed;
+            if(pstates_) {
+                pstates_->open_state = core::FileOpenState::Closed;
+            }
         }
 
         // File as a group.
