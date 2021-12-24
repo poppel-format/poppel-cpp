@@ -1,6 +1,8 @@
 #ifndef POPPEL_TEST_CORE_OPERATIONS_HPP
 #define POPPEL_TEST_CORE_OPERATIONS_HPP
 
+#include <fstream>
+
 #include <catch2/catch.hpp>
 
 #include <poppel/core/operations.hpp>
@@ -88,9 +90,84 @@ TEST_CASE("Poppel operations", "[operation]") {
     }
 
     SECTION("Node operations.") {
-        cleanup();
-        CHECK_THROWS(get_file_node(pfile1));
-        // TODO.
+        SECTION("File nodes.") {
+            cleanup();
+            CHECK_THROWS(get_file_node(pfile1));
+
+            auto node1 = require_file_node(pfile1);
+            CHECK(node1.meta.type == NodeType::File);
+            REQUIRE_NOTHROW(assert_exists_directory(pfile1));
+
+            CHECK_THROWS(create_file_node(pfile1));
+            delete_file_node(pfile1);
+            CHECK(!std::filesystem::exists(pfile1));
+
+            auto node2 = create_file_node(pfile2);
+            CHECK(node2.meta.type == NodeType::File);
+        }
+
+        SECTION("Non-file (eg. group and dataset) nodes.") {
+            cleanup();
+            auto f1 = create_file_node(pfile1);
+
+            // Node creation and deletion.
+            CHECK       (!has_node(f1, "g1",         fs_r, NodeType::Group));
+            CHECK_THROWS( has_node(f1, "/bad/path/", fs_r, NodeType::Group));
+            CHECK_THROWS( has_node(f1, "g1",         fs_c, NodeType::Group));
+            CHECK_THROWS(get_node(f1, "g1", fs_r, NodeType::Group));
+            REQUIRE_THROWS(create_node(f1, "g1", fs_r, NodeType::Group));
+
+            {
+                auto f1n1 = create_node(f1, "g1", fs_rw, NodeType::Group);
+                // 🗂️ f1 (File)
+                // └─ 📂 g1
+                CHECK(f1n1.meta.type == NodeType::Group);
+                CHECK_THROWS(create_node(f1, "g1", fs_rw, NodeType::Group));
+                CHECK_THROWS(create_node(f1, "g1", fs_rw, NodeType::Dataset));
+                CHECK_THROWS(get_node(f1, "g1", fs_rw, NodeType::Dataset));
+
+                REQUIRE_THROWS(delete_node(f1, "g1", fs_r));
+                delete_node(f1, "g1", fs_rw);
+            }
+
+            {
+                auto f1n1 = require_node(f1, "d1", fs_rw, NodeType::Dataset);
+                // 🗂️ f1 (File)
+                // └─ 🔢 d1
+                CHECK(f1n1.meta.type == NodeType::Dataset);
+            }
+
+            // Nested node creation.
+            {
+                REQUIRE_THROWS(create_node(f1, "d1/g1", fs_rw, NodeType::Group));
+                REQUIRE_THROWS(create_node(f1, "d1/d1", fs_rw, NodeType::Dataset));
+                auto f1n11 = create_node(f1, "g1/g1", fs_rw, NodeType::Group);
+                // 🗂️ f1 (File)
+                // ├─ 🔢 d1
+                // └─ 📂 g1
+                //    └─ 📂 g1
+                CHECK(f1n11.meta.type == NodeType::Group);
+                auto f1n1 = get_node(f1, "g1", fs_r, NodeType::Group);
+                CHECK(f1n1.meta.type == NodeType::Group);
+
+                auto f1n111 = require_node(f1n1, "g1/d1", fs_rw, NodeType::Dataset);
+                // 🗂️ f1 (File)
+                // ├─ 🔢 d1
+                // └─ 📂 g1
+                //    └─ 📂 g1
+                //       └─ 🔢 d1
+                CHECK(f1n111.meta.type == NodeType::Dataset);
+                f1n11 = get_node(f1, "g1/g1", fs_r, NodeType::Group);
+                CHECK(f1n11.meta.type == NodeType::Group);
+                CHECK(has_node(f1n11, "d1", fs_r, NodeType::Dataset));
+
+                delete_node(f1, f1n11.relpath, fs_rw);
+                // 🗂️ f1 (File)
+                // ├─ 🔢 d1
+                // └─ 📂 g1
+                CHECK(!has_node(f1n11, "d1", fs_r, NodeType::Dataset));
+            }
+        }
     }
 }
 

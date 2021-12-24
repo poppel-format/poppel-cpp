@@ -112,7 +112,9 @@ namespace poppel {
 
     public:
 
-        File(const std::filesystem::path& path, ModeType mode) {
+        File(const std::filesystem::path& path, ModeType mode) :
+            pstates_(new core::FileStates { core::FileOpenState::Closed })
+        {
             open(path, mode);
         }
 
@@ -151,9 +153,7 @@ namespace poppel {
             }
         }
         void close() {
-            if(pstates_) {
-                pstates_->open_state = core::FileOpenState::Closed;
-            }
+            pstates_->open_state = core::FileOpenState::Closed;
         }
 
         // File as a group.

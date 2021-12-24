@@ -152,6 +152,23 @@ namespace poppel::core {
         std::filesystem::remove_all(name);
     }
 
+    bool has_node(const Node& node, const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype) {
+        assert_file_open(filestates);
+        assert_is_node_group(node);
+        auto normalized_name = name.lexically_normal();
+        assert_is_valid_node_normalized_relpath(normalized_name);
+
+        auto dirpath = node.path() / normalized_name;
+        if(!std::filesystem::is_directory(dirpath)) {
+            return false;
+        }
+
+        auto meta = read_node_meta(dirpath);
+        if(meta.type != nodetype) {
+            return false;
+        }
+        return true;
+    }
     Node get_node(const Node& node, const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype) {
         assert_file_open(filestates);
         assert_is_node_group(node);
@@ -181,6 +198,7 @@ namespace poppel::core {
         std::filesystem::create_directory(dirpath);
         NodeMeta meta;
         meta.type = nodetype;
+        write_node_meta(dirpath, meta);
 
         return Node { meta, node.root, normalized_name, };
     }

@@ -37,6 +37,7 @@ namespace poppel::core {
     Node require_file_node(const std::filesystem::path& name);
     void delete_file_node(const std::filesystem::path& name);
 
+    bool has_node    (const Node& node, const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype);
     // If directory does not exist or node type does not match, an error is thrown.
     Node get_node    (const Node& node, const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype);
     Node create_node (const Node& node, const std::filesystem::path& name, const FileStates& filestates, NodeType nodetype);
