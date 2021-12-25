@@ -285,6 +285,94 @@ TEST_CASE("Poppel operations", "[operation]") {
             CHECK(val2 == val1);
         }
     }
+
+    SECTION("Attribute operations.") {
+        cleanup();
+        auto f1 = create_file_node(pfile1);
+        // 🗂️ f1 (File)
+        REQUIRE(std::filesystem::is_directory(pfile1));
+
+        auto f1d1 = create_node(f1, "d1", fs_rw, NodeType::Dataset);
+        auto f1g1 = create_node(f1, "g1", fs_rw, NodeType::Group);
+        auto f1g1g1 = create_node(f1g1, "g1", fs_rw, NodeType::Group);
+        // 🗂️ f1 (File)
+        // ├─ 🔢 d1
+        // └─ 📂 g1
+        //    └─ 📂 g1
+
+        REQUIRE_THROWS(get_attribute(f1, fs_r));
+        auto attrobj_f1 = get_attribute(f1, fs_rw);
+        REQUIRE_NOTHROW(get_attribute(f1, fs_r));
+        CHECK(attrobj_f1.jsonfile == pfile1 / "attributes.json");
+        {
+            Json j;
+            j["hello target"] = "world";
+            j["spacetime dimension"] = 4;
+            j["planck constant"] = 6.62607015e-34;
+            save_attr(j, attrobj_f1);
+            // 🗂️ f1 (File)
+            // ├─ 🏷️ hello target
+            // ├─ 🏷️ spacetime dimension
+            // ├─ 🏷️ planck constant
+            // ├─ 🔢 d1
+            // └─ 📂 g1
+            //    └─ 📂 g1
+        }
+        {
+            const auto j = load_attr(attrobj_f1);
+            CHECK(j["hello target"].get<std::string>() == "world");
+            CHECK(j["spacetime dimension"].get<int>() == 4);
+            CHECK(j["planck constant"].get<double>() == 6.62607015e-34);
+        }
+
+        auto attrobj_f1d1 = get_attribute(f1d1, fs_rw);
+        CHECK(attrobj_f1d1.jsonfile == pfile1 / "d1/attributes.json");
+        {
+            Json j;
+            j["teyvat nations"] = { "Mondstadt", "Liyue", "Inazuma", "Sumeru", "Fontaine", "Natlan", "Snezhnaya" };
+            save_attr(j, attrobj_f1d1);
+            // 🗂️ f1 (File)
+            // ├─ 🏷️ hello target
+            // ├─ 🏷️ spacetime dimension
+            // ├─ 🏷️ planck constant
+            // ├─ 🔢 d1
+            // │  └─ 🏷️ teyvat nations
+            // └─ 📂 g1
+            //    └─ 📂 g1
+        }
+        {
+            const auto j = load_attr(attrobj_f1d1);
+            const auto v = j["teyvat nations"].get<std::vector<std::string>>();
+            REQUIRE(v.size() == 7);
+            CHECK(v[1] == "Liyue");
+        }
+
+        auto attrobj_f1g1g1 = get_attribute(f1g1g1, fs_rw);
+        CHECK(attrobj_f1g1g1.jsonfile == pfile1 / "g1/g1/attributes.json");
+        {
+            Json j;
+            j["TREE function table"] = {
+                { "1", 1 },
+                { "2", 3 },
+                { "3", "BOOM" },
+            };
+            save_attr(j, attrobj_f1g1g1);
+            // 🗂️ f1 (File)
+            // ├─ 🏷️ hello target
+            // ├─ 🏷️ spacetime dimension
+            // ├─ 🏷️ planck constant
+            // ├─ 🔢 d1
+            // │  └─ 🏷️ teyvat nations
+            // └─ 📂 g1
+            //    └─ 📂 g1
+            //       └─ 🏷️ TREE function table
+        }
+        {
+            const auto j = load_attr(attrobj_f1g1g1);
+            CHECK(j["TREE function table"]["2"].get<int>() == 3);
+            CHECK(j["TREE function table"]["3"].get<std::string>() == "BOOM");
+        }
+    }
 }
 
 #endif
