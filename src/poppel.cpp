@@ -17,15 +17,9 @@ namespace poppel {
         core::delete_node(node_, name, *pstates_);
     }
 
-    // Dataset management.
+    // Parts of dataset management.
     Dataset Group::get_dataset(const std::filesystem::path& name) const {
         return Dataset(core::get_node(node_, name, *pstates_, core::NodeType::Dataset), pstates_);
-    }
-    Dataset Group::create_dataset(const std::filesystem::path& name) const {
-        return Dataset(core::create_node(node_, name, *pstates_, core::NodeType::Dataset), pstates_);
-    }
-    Dataset Group::require_dataset(const std::filesystem::path& name) const {
-        return Dataset(core::require_node(node_, name, *pstates_, core::NodeType::Dataset), pstates_);
     }
     void Group::delete_dataset(const std::filesystem::path& name) const {
         core::delete_node(node_, name, *pstates_);

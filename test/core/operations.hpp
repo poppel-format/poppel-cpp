@@ -22,11 +22,13 @@ TEST_CASE("Poppel operations", "[operation]") {
     auto pfile2   = temp_dir / "file2.poppel";
     auto pfile3   = temp_dir / "file3.poppel";
     auto tfile1   = temp_dir / "file1.txt";
+    auto npyfile1 = temp_dir / "file1.npy";
     auto cleanup  = [&]() {
         std::filesystem::remove_all(pfile1);
         std::filesystem::remove_all(pfile2);
         std::filesystem::remove_all(pfile3);
         std::filesystem::remove_all(tfile1);
+        std::filesystem::remove_all(npyfile1);
     };
     ScopeGuard cleanup_guard { cleanup };
 
@@ -167,6 +169,120 @@ TEST_CASE("Poppel operations", "[operation]") {
                 // └─ 📂 g1
                 CHECK(!has_node(f1n11, "d1", fs_r, NodeType::Dataset));
             }
+        }
+    }
+
+    SECTION("Dataset operations.") {
+        DatasetMeta dm;
+
+        // bool.
+        save_from(true, npyfile1);
+        dm = load_npy_meta(npyfile1);
+        CHECK(dm.wordsize == sizeof(bool));
+        CHECK(dm.shape.size() == 0);
+        {
+            bool val = false;
+            load_to(val, npyfile1);
+            CHECK(val);
+        }
+
+        // int.
+        save_from(114514, npyfile1);
+        dm = load_npy_meta(npyfile1);
+        CHECK(dm.wordsize == sizeof(int));
+        CHECK(dm.shape.size() == 0);
+        {
+            int val = 0;
+            load_to(val, npyfile1);
+            CHECK(val == 114514);
+        }
+
+        // float.
+        save_from(1.2345f, npyfile1);
+        dm = load_npy_meta(npyfile1);
+        CHECK(dm.wordsize == sizeof(float));
+        CHECK(dm.shape.size() == 0);
+        {
+            float val = 0.0f;
+            load_to(val, npyfile1);
+            CHECK(val == 1.2345f);
+        }
+
+        // complex<double>.
+        save_from(std::complex<double>(1.2345, 2.3456), npyfile1);
+        dm = load_npy_meta(npyfile1);
+        CHECK(dm.wordsize == sizeof(std::complex<double>));
+        CHECK(dm.shape.size() == 0);
+        {
+            std::complex<double> val = 0.0;
+            load_to(val, npyfile1);
+            CHECK(val == std::complex<double>(1.2345, 2.3456));
+        }
+
+        // vector<uint64_t>.
+        {
+            const std::vector<std::uint64_t> val1 { 1, 2, 3, 4, 5 };
+            save_from(val1, npyfile1);
+            dm = load_npy_meta(npyfile1);
+            CHECK(dm.wordsize == sizeof(std::uint64_t));
+            REQUIRE(dm.shape.size() == 1);
+            CHECK(dm.shape[0] == 5);
+
+            std::vector<std::uint64_t> val2;
+            load_to(val2, npyfile1);
+            CHECK(val2 == val1);
+        }
+
+        // vector<complex<float>>.
+        {
+            const std::vector<std::complex<float>> val1 {
+                std::complex<float>(1.0f, 2.0f),
+                std::complex<float>(3.0f, 4.0f),
+                std::complex<float>(5.0f, 6.0f),
+            };
+            save_from(val1, npyfile1);
+            dm = load_npy_meta(npyfile1);
+            CHECK(dm.wordsize == sizeof(std::complex<float>));
+            REQUIRE(dm.shape.size() == 1);
+            CHECK(dm.shape[0] == 3);
+
+            std::vector<std::complex<float>> val2;
+            load_to(val2, npyfile1);
+            CHECK(val2 == val1);
+        }
+
+        // string.
+        {
+            const std::string val1 = "Hallo/Hello/你好/こんにちは/안녕하세요";
+            save_from(val1, npyfile1);
+            dm = load_npy_meta(npyfile1);
+            CHECK(dm.wordsize == sizeof(char));
+            REQUIRE(dm.shape.size() == 1);
+            CHECK(dm.shape[0] == val1.size());
+
+            std::string val2;
+            load_to(val2, npyfile1);
+            CHECK(val2 == val1);
+        }
+
+        // 3x3 matrix of double, fortran order. Using raw buffer methods.
+        {
+            const std::vector<double> val1 {
+                1, 4, 7,   2, 5, 8,   3, 6, 9,
+            };
+            const bool fortran_order = true;
+            const std::vector<Size> shape { 3, 3 };
+            save_from(val1.data(), fortran_order, shape, npyfile1);
+
+            dm = load_npy_meta(npyfile1);
+            CHECK(dm.wordsize == sizeof(double));
+            REQUIRE(dm.shape.size() == 2);
+            CHECK(dm.shape[0] == 3);
+            CHECK(dm.shape[1] == 3);
+
+            std::vector<double> val2(9);
+            load_to(val2.data(), fortran_order, shape, npyfile1);
+            CHECK(val2 == val1);
         }
     }
 }

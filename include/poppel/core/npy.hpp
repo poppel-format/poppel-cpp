@@ -57,8 +57,8 @@ namespace poppel::npy {
         constexpr char char_no_endian = '|';
         constexpr char char_host_endian = (Endian::native == Endian::big ? char_big_endian : char_little_endian);
 
-        struct MaxAlignCharAllocator {
-            using value_type = char;
+        struct MaxAlignByteAllocator {
+            using value_type = std::byte;
             using pointer = value_type*;
 
             template< typename T >
@@ -75,11 +75,12 @@ namespace poppel::npy {
                 ::operator delete(p, align_value);
             }
         };
-        using MaxAlignCharVector = std::vector<char, MaxAlignCharAllocator>;
+        using MaxAlignCharVector = std::vector<std::byte, MaxAlignByteAllocator>;
 
-        template< typename T >
-        constexpr bool is_scalar = std::is_arithmetic_v<T> || std::is_same_v<T, std::complex<float>> || std::is_same_v<T, std::complex<double>>;
     } // namespace internal
+
+    template< typename T >
+    constexpr bool is_scalar = std::is_arithmetic_v<T> || std::is_same_v<T, std::complex<float>> || std::is_same_v<T, std::complex<double>>;
 
     struct Version {
         std::uint8_t major = 0;
@@ -120,16 +121,22 @@ namespace poppel::npy {
             return length() * dtype.itemsize;
         }
     };
+    constexpr bool operator==(const Header& lhs, const Header& rhs) {
+        return (lhs.dtype == rhs.dtype) && (lhs.fortran_order == rhs.fortran_order) && (lhs.shape == rhs.shape);
+    }
+    constexpr bool operator!=(const Header& lhs, const Header& rhs) {
+        return !(lhs == rhs);
+    }
 
     struct NumpyArray {
         Header header;
         internal::MaxAlignCharVector rawdata;
 
-        template< typename T = char >
+        template< typename T = std::byte >
         auto data() noexcept {
             return reinterpret_cast<T*>(rawdata.data());
         }
-        template< typename T = char >
+        template< typename T = std::byte >
         auto data() const noexcept {
             return reinterpret_cast<const T*>(rawdata.data());
         }
@@ -428,13 +435,19 @@ namespace poppel::npy {
         }
     } // namespace internal
 
+    // Helper to create header with compile-time type information.
+    template< typename T >
+    inline Header create_header(bool fortran_order, std::vector<internal::Size> shape) {
+        return Header { internal::dtype(T{}), fortran_order, std::move(shape) };
+    }
+
     // Core function to save data.
-    inline void save(std::ostream& os, const Header& header, const char* data) {
+    inline void save(std::ostream& os, const Header& header, const std::byte* data) {
         const Version version { 3, 0 };
         internal::write_header(os, version, internal::gen_header(version, header));
 
         const auto data_len = header.numbytes();
-        os.write(data, data_len);
+        os.write(reinterpret_cast<const char*>(data), data_len);
     }
 
     // Core function to load header only.
@@ -448,8 +461,8 @@ namespace poppel::npy {
     // Precondition:
     // - is points to the start of the data portion.
     // - data points to a buffer of at least numbytes bytes.
-    inline void load_data(std::istream& is, char* data, internal::Size numbytes) {
-        is.read(data, numbytes);
+    inline void load_data(std::istream& is, std::byte* data, internal::Size numbytes) {
+        is.read(reinterpret_cast<char*>(data), numbytes);
     }
 
     // Core function to load all data to a managed buffer.
@@ -462,6 +475,18 @@ namespace poppel::npy {
         load_data(is, ret.rawdata.data(), numbytes);
 
         return ret;
+    }
+
+    // Core function to load all data to a pre-allocated buffer with known type and size.
+    // Will check for header information match.
+    inline void load(std::istream& is, Header header, std::byte* data) {
+        const auto loaded_header = load_header(is);
+        if (loaded_header != header) {
+            throw std::runtime_error("header information mismatch");
+        }
+
+        const auto numbytes = header.numbytes();
+        load_data(is, data, numbytes);
     }
 
     namespace internal {
@@ -492,31 +517,31 @@ namespace poppel::npy {
     // Various save functions.
     //----------------------------------
 
-    inline void save(const std::filesystem::path& filename, const Header& header, const char* data) {
+    inline void save(const std::filesystem::path& filename, const Header& header, const std::byte* data) {
         auto ofs = internal::open_file_for_save(filename);
         save(ofs, header, data);
     }
-    inline void save(std::string_view filename, const Header& header, const char* data) {
+    inline void save(std::string_view filename, const Header& header, const std::byte* data) {
         auto ofs = internal::open_file_for_save(filename);
         save(ofs, header, data);
     }
 
     // Save scalar data.
-    template< typename T, std::enable_if_t< internal::is_scalar<T> >* = nullptr >
+    template< typename T, std::enable_if_t< is_scalar<T> >* = nullptr >
     inline void save(std::ostream& os, T data) {
         Header header { internal::dtype(data), false, {} };
-        save(os, header, reinterpret_cast<const char*>(&data));
+        save(os, header, reinterpret_cast<const std::byte*>(&data));
     }
     // Save vector of scalar.
-    template< typename T, std::enable_if_t< internal::is_scalar<T> >* = nullptr >
+    template< typename T, std::enable_if_t< is_scalar<T> >* = nullptr >
     inline void save(std::ostream& os, const std::vector<T>& data) {
         Header header { internal::dtype(T{}), false, { static_cast<internal::Size>(data.size()) } };
-        save(os, header, reinterpret_cast<const char*>(data.data()));
+        save(os, header, reinterpret_cast<const std::byte*>(data.data()));
     }
     // Save string.
     inline void save(std::ostream& os, std::string_view data) {
         Header header { internal::dtype(char{}), false, { static_cast<internal::Size>(data.size()) } };
-        save(os, header, data.data());
+        save(os, header, reinterpret_cast<const std::byte*>(data.data()));
     }
 
     template< typename T >
@@ -553,9 +578,16 @@ namespace poppel::npy {
     inline NumpyArray load(std::string_view filename) {
         return load(std::filesystem::path(filename));
     }
+    inline void load(const std::filesystem::path& filename, Header header, std::byte* data) {
+        auto ifs = internal::open_file_for_load(filename);
+        load(ifs, header, data);
+    }
+    inline void load(std::string_view filename, Header header, std::byte* data) {
+        load(std::filesystem::path(filename), header, data);
+    }
 
     // Load scalar data.
-    template< typename T, std::enable_if_t< internal::is_scalar<T> >* = nullptr >
+    template< typename T, std::enable_if_t< is_scalar<T> >* = nullptr >
     inline void load(std::istream& is, T& data) {
         Header header = load_header(is);
         if(header.shape.size() != 0) {
@@ -564,10 +596,10 @@ namespace poppel::npy {
         if(header.dtype != internal::dtype(T{})) {
             throw std::runtime_error("array dtype is not match");
         }
-        load_data(is, reinterpret_cast<char*>(&data), 1);
+        load_data(is, reinterpret_cast<std::byte*>(&data), header.numbytes());
     }
     // Load vector of scalar.
-    template< typename T, std::enable_if_t< internal::is_scalar<T> >* = nullptr >
+    template< typename T, std::enable_if_t< is_scalar<T> >* = nullptr >
     inline void load(std::istream& is, std::vector<T>& data) {
         Header header = load_header(is);
         if(header.shape.size() != 1) {
@@ -577,7 +609,7 @@ namespace poppel::npy {
             throw std::runtime_error("array dtype is not match");
         }
         data.resize(header.shape[0]);
-        load_data(is, reinterpret_cast<char*>(data.data()), header.numbytes());
+        load_data(is, reinterpret_cast<std::byte*>(data.data()), header.numbytes());
     }
     // Load string.
     inline void load(std::istream& is, std::string& data) {
@@ -589,7 +621,7 @@ namespace poppel::npy {
             throw std::runtime_error("array dtype is not match");
         }
         data.resize(header.shape[0]);
-        load_data(is, data.data(), header.numbytes());
+        load_data(is, reinterpret_cast<std::byte*>(data.data()), header.numbytes());
     }
 
     template< typename T >

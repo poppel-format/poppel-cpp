@@ -1,6 +1,7 @@
 #ifndef INCLUDE_POPPEL_CORE_OPERATIONS_HPP_
 #define INCLUDE_POPPEL_CORE_OPERATIONS_HPP_
 
+#include "npy.hpp"
 #include "types.hpp"
 #include "utilities.hpp"
 
@@ -53,74 +54,64 @@ namespace poppel::core {
 
     DatasetMeta load_npy_meta(const std::filesystem::path& dataset);
 
-    void load_to(bool& val,                  const std::filesystem::path& dataset);
-    void load_to(std::int8_t& val,           const std::filesystem::path& dataset);
-    void load_to(std::int16_t& val,          const std::filesystem::path& dataset);
-    void load_to(std::int32_t& val,          const std::filesystem::path& dataset);
-    void load_to(std::int64_t& val,          const std::filesystem::path& dataset);
-    void load_to(std::uint8_t& val,          const std::filesystem::path& dataset);
-    void load_to(std::uint16_t& val,         const std::filesystem::path& dataset);
-    void load_to(std::uint32_t& val,         const std::filesystem::path& dataset);
-    void load_to(std::uint64_t& val,         const std::filesystem::path& dataset);
-    void load_to(float& val,                 const std::filesystem::path& dataset);
-    void load_to(double& val,                const std::filesystem::path& dataset);
-    void load_to(std::complex<float>& val,   const std::filesystem::path& dataset);
-    void load_to(std::complex<double>& val,  const std::filesystem::path& dataset);
+    // Saving data.
+    //----------------------------------
 
-    template< typename T, std::enable_if_t< std::is_integral_v<T>>* = nullptr >
-    void load_to(T& val, const std::filesystem::path& dataset) {
-        load_to(static_cast<NormalizedIntegralOf<T>&>(val), dataset);
+    // Generic loading for any scalar data.
+    template< typename T, std::enable_if_t< npy::is_scalar<T>>* = nullptr >
+    void load_to(T& val, const std::filesystem::path& path) {
+        npy::load(path, val);
     }
 
-    void load_to(std::vector<std::int8_t>& val,           const std::filesystem::path& dataset);
-    void load_to(std::vector<std::int16_t>& val,          const std::filesystem::path& dataset);
-    void load_to(std::vector<std::int32_t>& val,          const std::filesystem::path& dataset);
-    void load_to(std::vector<std::int64_t>& val,          const std::filesystem::path& dataset);
-    void load_to(std::vector<std::uint8_t>& val,          const std::filesystem::path& dataset);
-    void load_to(std::vector<std::uint16_t>& val,         const std::filesystem::path& dataset);
-    void load_to(std::vector<std::uint32_t>& val,         const std::filesystem::path& dataset);
-    void load_to(std::vector<std::uint64_t>& val,         const std::filesystem::path& dataset);
-    void load_to(std::vector<float>& val,                 const std::filesystem::path& dataset);
-    void load_to(std::vector<double>& val,                const std::filesystem::path& dataset);
-    void load_to(std::vector<std::complex<float>>& val,   const std::filesystem::path& dataset);
-    void load_to(std::vector<std::complex<double>>& val,  const std::filesystem::path& dataset);
-
-    void load_to(std::string& val, const std::filesystem::path& dataset);
-
-
-    void save_from(bool val,                  const std::filesystem::path& dataset);
-    void save_from(std::int8_t val,           const std::filesystem::path& dataset);
-    void save_from(std::int16_t val,          const std::filesystem::path& dataset);
-    void save_from(std::int32_t val,          const std::filesystem::path& dataset);
-    void save_from(std::int64_t val,          const std::filesystem::path& dataset);
-    void save_from(std::uint8_t val,          const std::filesystem::path& dataset);
-    void save_from(std::uint16_t val,         const std::filesystem::path& dataset);
-    void save_from(std::uint32_t val,         const std::filesystem::path& dataset);
-    void save_from(std::uint64_t val,         const std::filesystem::path& dataset);
-    void save_from(float val,                 const std::filesystem::path& dataset);
-    void save_from(double val,                const std::filesystem::path& dataset);
-    void save_from(std::complex<float> val,   const std::filesystem::path& dataset);
-    void save_from(std::complex<double> val,  const std::filesystem::path& dataset);
-
-    template< typename T, std::enable_if_t< std::is_integral_v<T>>* = nullptr >
-    void save_from(T val, const std::filesystem::path& dataset) {
-        save_from(static_cast<NormalizedIntegralOf<T>>(val), dataset);
+    // Generic loading for any 1D scalar data.
+    template< typename T, std::enable_if_t< npy::is_scalar<T>>* = nullptr >
+    void load_to(T* data, Size size, const std::filesystem::path& path) {
+        npy::load(path, npy::create_header<T>(false, { size }), reinterpret_cast<std::byte*>(data));
     }
 
-    void save_from(const std::vector<std::int8_t>& val,           const std::filesystem::path& dataset);
-    void save_from(const std::vector<std::int16_t>& val,          const std::filesystem::path& dataset);
-    void save_from(const std::vector<std::int32_t>& val,          const std::filesystem::path& dataset);
-    void save_from(const std::vector<std::int64_t>& val,          const std::filesystem::path& dataset);
-    void save_from(const std::vector<std::uint8_t>& val,          const std::filesystem::path& dataset);
-    void save_from(const std::vector<std::uint16_t>& val,         const std::filesystem::path& dataset);
-    void save_from(const std::vector<std::uint32_t>& val,         const std::filesystem::path& dataset);
-    void save_from(const std::vector<std::uint64_t>& val,         const std::filesystem::path& dataset);
-    void save_from(const std::vector<float>& val,                 const std::filesystem::path& dataset);
-    void save_from(const std::vector<double>& val,                const std::filesystem::path& dataset);
-    void save_from(const std::vector<std::complex<float>>& val,   const std::filesystem::path& dataset);
-    void save_from(const std::vector<std::complex<double>>& val,  const std::filesystem::path& dataset);
+    // Generic loading for any dimension scalar data.
+    template< typename T, std::enable_if_t< npy::is_scalar<T>>* = nullptr >
+    void load_to(T* data, bool fortran_order, std::vector<Size> shape, const std::filesystem::path& path) {
+        npy::load(path, npy::create_header<T>(fortran_order, std::move(shape)), reinterpret_cast<std::byte*>(data));
+    }
 
-    void save_from(const std::string& val, const std::filesystem::path& dataset);
+    // Load std::vector.
+    template< typename T, std::enable_if_t< npy::is_scalar<T> && !std::is_same_v<T, bool> >* = nullptr >
+    void load_to(std::vector<T>& val, const std::filesystem::path& path) {
+        npy::load(path, val);
+    }
+    // Load std::string.
+    void load_to(std::string& val, const std::filesystem::path& path);
+
+
+    // Saving data.
+    //----------------------------------
+
+    // Generic saving for any scalar data.
+    template< typename T, std::enable_if_t< npy::is_scalar<T>>* = nullptr >
+    void save_from(T val, const std::filesystem::path& path) {
+        npy::save(path, val);
+    }
+
+    // Generic saving for any 1D scalar data.
+    template< typename T, std::enable_if_t< npy::is_scalar<T>>* = nullptr >
+    void save_from(const T* data, Size size, const std::filesystem::path& path) {
+        npy::save(path, npy::create_header<T>(false, { size }), reinterpret_cast<const std::byte*>(data));
+    }
+
+    // Generic saving for any dimension scalar data.
+    template< typename T, std::enable_if_t< npy::is_scalar<T>>* = nullptr >
+    void save_from(const T* data, bool fortran_order, std::vector<Size> shape, const std::filesystem::path& path) {
+        npy::save(path, npy::create_header<T>(fortran_order, std::move(shape)), reinterpret_cast<const std::byte*>(data));
+    }
+
+    // Save std::vector.
+    template< typename T, std::enable_if_t< npy::is_scalar<T> && !std::is_same_v<T, bool> >* = nullptr >
+    void save_from(const std::vector<T>& val, const std::filesystem::path& path) {
+        npy::save(path, val);
+    }
+    // Save string.
+    void save_from(const std::string& val, const std::filesystem::path& path);
 
     //----------------------------------
     // Attribute operations.

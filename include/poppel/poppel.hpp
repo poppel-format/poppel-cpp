@@ -18,41 +18,6 @@ namespace poppel {
     class File;
     class Dataset;
 
-    class Group {
-    private:
-        core::Node          node_;
-        core::FileStates*   pstates_ = nullptr;
-
-    public:
-        Group() = default;
-        Group(core::Node node, core::FileStates* pstates):
-            node_(std::move(node)), pstates_(pstates)
-        {}
-
-        Group& operator=(const Group&) = default;
-        Group& operator=(Group&&     ) = default;
-
-        // Group management.
-        Group get_group(const std::filesystem::path& name) const;
-        Group create_group(const std::filesystem::path& name) const;
-        Group require_group(const std::filesystem::path& name) const;
-        void delete_group(const std::filesystem::path& name) const;
-
-        // Dataset management.
-        Dataset get_dataset(const std::filesystem::path& name) const;
-        Dataset create_dataset(const std::filesystem::path& name) const;
-        Dataset require_dataset(const std::filesystem::path& name) const;
-        void delete_dataset(const std::filesystem::path& name) const;
-
-        // Attributes.
-        auto load_attr() const {
-            return core::load_attr(core::get_attribute(node_, *pstates_));
-        }
-        auto save_attr(const Json& val) const {
-            return core::save_attr(val, core::get_attribute(node_, *pstates_));
-        }
-    };
-
     class Dataset {
     private:
         core::Node          node_;
@@ -77,6 +42,54 @@ namespace poppel {
             core::assert_is_node_dataset(node_);
             core::save_from(val, node_.path() / "data.npy");
         }
+
+        // Attributes.
+        auto load_attr() const {
+            return core::load_attr(core::get_attribute(node_, *pstates_));
+        }
+        auto save_attr(const Json& val) const {
+            return core::save_attr(val, core::get_attribute(node_, *pstates_));
+        }
+    };
+
+
+    class Group {
+    private:
+        core::Node          node_;
+        core::FileStates*   pstates_ = nullptr;
+
+    public:
+        Group() = default;
+        Group(core::Node node, core::FileStates* pstates):
+            node_(std::move(node)), pstates_(pstates)
+        {}
+
+        Group& operator=(const Group&) = default;
+        Group& operator=(Group&&     ) = default;
+
+        // Group management.
+        Group get_group(const std::filesystem::path& name) const;
+        Group create_group(const std::filesystem::path& name) const;
+        Group require_group(const std::filesystem::path& name) const;
+        void delete_group(const std::filesystem::path& name) const;
+
+        // Dataset management.
+        Dataset get_dataset(const std::filesystem::path& name) const;
+        template< typename T >
+        Dataset create_dataset(const std::filesystem::path& name, const T& data) const {
+            Dataset dataset(core::create_node(node_, name, *pstates_, core::NodeType::Dataset), pstates_);
+            dataset.save_from(data);
+            return dataset;
+        }
+        template< typename T >
+        Dataset require_dataset(const std::filesystem::path& name, const T& default_data) const {
+            if(has_node(node_, name, *pstates_, core::NodeType::Dataset)) {
+                return get_dataset(name);
+            } else {
+                return create_dataset(name, default_data);
+            }
+        }
+        void delete_dataset(const std::filesystem::path& name) const;
 
         // Attributes.
         auto load_attr() const {
@@ -167,8 +180,10 @@ namespace poppel {
         void delete_group(const std::filesystem::path& name) const { return group_.delete_group(name); }
 
         auto get_dataset(const std::filesystem::path& name) const { return group_.get_dataset(name); }
-        auto create_dataset(const std::filesystem::path& name) const { return group_.create_dataset(name); }
-        auto require_dataset(const std::filesystem::path& name) const { return group_.require_dataset(name); }
+        template< typename T >
+        auto create_dataset(const std::filesystem::path& name, const T& data) const { return group_.create_dataset(name, data); }
+        template< typename T >
+        auto require_dataset(const std::filesystem::path& name, const T& default_data) const { return group_.require_dataset(name, default_data); }
         void delete_dataset(const std::filesystem::path& name) const { return group_.delete_dataset(name); }
 
     };

@@ -15,8 +15,8 @@
 
 namespace poppel {
 
-    using Index = std::ptrdiff_t;
-    using Size  = std::ptrdiff_t;
+    using Index = std::int64_t;
+    using Size  = std::int64_t;
 
     using Json = nlohmann::json;
 
