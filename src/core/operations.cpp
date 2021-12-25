@@ -43,7 +43,7 @@ namespace poppel::core {
     //
     // Note:
     // - Path does not need to exist.
-    // - Path must be relative.                                 (So no "/var" or "C:\\Program Files".)
+    // - Path must be relative.                                 (So no "/var" (POSIX) or "C:\\Program Files".)
     // - Path must not be empty, nor start with dot or dot-dot. (So no "", "." or "../treasure".)
     // - Path must have filename portion.                       (So no "trailing\\" or "trailing/".)
     bool is_valid_node_normalized_relpath(const std::filesystem::path& normalized_relpath) {
@@ -264,7 +264,7 @@ namespace poppel::core {
     }
 
     //----------------------------------
-    // DataSet operations.
+    // Dataset operations.
     //----------------------------------
 
     DatasetMeta load_npy_meta(const std::filesystem::path& npyfile) {
@@ -282,7 +282,7 @@ namespace poppel::core {
     void save_from(const std::string& val, const std::filesystem::path& path) { npy::save(path, val); }
 
     //----------------------------------
-    // DataSet operations.
+    // Attribute operations.
     //----------------------------------
 
     Json load_attr(const Attribute& attr) {
