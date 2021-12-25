@@ -200,7 +200,7 @@ namespace poppel::core {
         meta.type = nodetype;
         write_node_meta(dirpath, meta);
 
-        return Node { meta, node.root, normalized_name, };
+        return Node{ meta, node.root, node.relpath / normalized_name, };
     }
     // Note:
     // - All intermediate directories must be groups or non-exist.
