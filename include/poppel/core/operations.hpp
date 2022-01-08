@@ -23,6 +23,9 @@ namespace poppel::core {
     bool is_node_dataset(const Node& node);
     void assert_is_node_dataset(const Node& node);
 
+    bool is_node_raw(const Node& node);
+    void assert_is_node_raw(const Node& node);
+
     void assert_exists_directory(const std::filesystem::path& path);
     void assert_not_exists(const std::filesystem::path& path);
 
@@ -54,7 +57,7 @@ namespace poppel::core {
 
     DatasetMeta load_npy_meta(const std::filesystem::path& dataset);
 
-    // Saving data.
+    // Loading data.
     //----------------------------------
 
     // Generic loading for any scalar data.

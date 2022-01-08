@@ -4,6 +4,9 @@
 namespace poppel {
 
     // Group management.
+    bool Group::has_group(const std::filesystem::path& name) const {
+        return core::has_node(node_, name, *pstates_, core::NodeType::Group);
+    }
     Group Group::get_group(const std::filesystem::path& name) const {
         return Group(core::get_node(node_, name, *pstates_, core::NodeType::Group), pstates_);
     }
@@ -18,6 +21,9 @@ namespace poppel {
     }
 
     // Parts of dataset management.
+    bool Group::has_dataset(const std::filesystem::path& name) const {
+        return core::has_node(node_, name, *pstates_, core::NodeType::Dataset);
+    }
     Dataset Group::get_dataset(const std::filesystem::path& name) const {
         return Dataset(core::get_node(node_, name, *pstates_, core::NodeType::Dataset), pstates_);
     }

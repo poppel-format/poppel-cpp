@@ -570,9 +570,6 @@ namespace poppel::npy {
 
     inline NumpyArray load(const std::filesystem::path& filename) {
         auto ifs = internal::open_file_for_load(filename);
-        NumpyArray ret;
-        ret.header = internal::parse_header(internal::read_header(ifs));
-
         return load(ifs);
     }
     inline NumpyArray load(std::string_view filename) {

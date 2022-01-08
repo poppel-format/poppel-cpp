@@ -80,6 +80,15 @@ namespace poppel::core {
         }
     }
 
+    bool is_node_raw(const Node& node) {
+        return node.meta.type == NodeType::Raw;
+    }
+    void assert_is_node_raw(const Node& node) {
+        if(!is_node_raw(node)) {
+            throw Exception("Node is not a raw.");
+        }
+    }
+
     void assert_exists_directory(const std::filesystem::path& path) {
         if (!std::filesystem::is_directory(path)) {
             throw Exception("Path is not a directory.");

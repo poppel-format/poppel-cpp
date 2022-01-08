@@ -84,7 +84,7 @@ TEST_CASE("Poppel operations", "[operation]") {
         CHECK_THROWS (assert_exists_directory(tfile1));
 
         std::filesystem::create_directories(pfile1);
-        { std::ofstream ofs(tfile1); REQUIRE(ofs.is_open()); }
+        { std::ofstream ofs(tfile1); REQUIRE(ofs.is_open()); } // Touch tfile1.
         CHECK_THROWS (assert_not_exists(pfile1));
         CHECK_THROWS (assert_not_exists(tfile1));
         CHECK_NOTHROW(assert_exists_directory(pfile1));

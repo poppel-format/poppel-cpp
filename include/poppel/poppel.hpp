@@ -68,12 +68,14 @@ namespace poppel {
         Group& operator=(Group&&     ) = default;
 
         // Group management.
+        bool has_group(const std::filesystem::path& name) const;
         Group get_group(const std::filesystem::path& name) const;
         Group create_group(const std::filesystem::path& name) const;
         Group require_group(const std::filesystem::path& name) const;
         void delete_group(const std::filesystem::path& name) const;
 
         // Dataset management.
+        bool has_dataset(const std::filesystem::path& name) const;
         Dataset get_dataset(const std::filesystem::path& name) const;
         template< typename T >
         Dataset create_dataset(const std::filesystem::path& name, const T& data) const {
@@ -174,11 +176,13 @@ namespace poppel {
         auto load_attr() const { return group_.load_attr(); }
         auto save_attr(const Json& val) const { return group_.save_attr(val); }
 
+        bool has_group(const std::filesystem::path& name) const { return group_.has_group(name); }
         auto get_group(const std::filesystem::path& name) const { return group_.get_group(name); }
         auto create_group(const std::filesystem::path& name) const { return group_.create_group(name); }
         auto require_group(const std::filesystem::path& name) const { return group_.require_group(name); }
         void delete_group(const std::filesystem::path& name) const { return group_.delete_group(name); }
 
+        bool has_dataset(const std::filesystem::path& name) const { return group_.has_dataset(name); }
         auto get_dataset(const std::filesystem::path& name) const { return group_.get_dataset(name); }
         template< typename T >
         auto create_dataset(const std::filesystem::path& name, const T& data) const { return group_.create_dataset(name, data); }
