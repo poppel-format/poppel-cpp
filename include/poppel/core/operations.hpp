@@ -68,14 +68,14 @@ namespace poppel::core {
 
     // Generic loading for any 1D scalar data.
     template< typename T, std::enable_if_t< npy::is_scalar<T>>* = nullptr >
-    void load_to(T* data, Size size, const std::filesystem::path& path) {
-        npy::load(path, npy::create_header<T>(false, { size }), reinterpret_cast<std::byte*>(data));
+    void load_to(T* data, Size size, const std::filesystem::path& path, bool allow_reshape) {
+        npy::load(path, npy::create_header<T>(false, { size }), reinterpret_cast<std::byte*>(data), allow_reshape);
     }
 
     // Generic loading for any dimension scalar data.
     template< typename T, std::enable_if_t< npy::is_scalar<T>>* = nullptr >
-    void load_to(T* data, bool fortran_order, std::vector<Size> shape, const std::filesystem::path& path) {
-        npy::load(path, npy::create_header<T>(fortran_order, std::move(shape)), reinterpret_cast<std::byte*>(data));
+    void load_to(T* data, bool fortran_order, std::vector<Size> shape, const std::filesystem::path& path, bool allow_reshape) {
+        npy::load(path, npy::create_header<T>(fortran_order, std::move(shape)), reinterpret_cast<std::byte*>(data), allow_reshape);
     }
 
     // Load std::vector.

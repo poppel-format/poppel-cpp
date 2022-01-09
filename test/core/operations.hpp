@@ -280,9 +280,28 @@ TEST_CASE("Poppel operations", "[operation]") {
             CHECK(header.shape[0] == 3);
             CHECK(header.shape[1] == 3);
 
-            std::vector<double> val2(9);
-            load_to(val2.data(), fortran_order, shape, npyfile1);
-            CHECK(val2 == val1);
+            {
+                std::vector<double> val2(9);
+                load_to(val2.data(), fortran_order, shape, npyfile1, false);
+                CHECK(val2 == val1);
+            }
+
+            {
+                // Test load that allows reshaping (and thus ignores axis order).
+                const bool fortran_order_alt = false;
+                const std::vector<Size> shape_alt { 1, 1, 9, 1 };
+                std::vector<double> val2(9);
+                REQUIRE_THROWS(load_to(val2.data(), fortran_order_alt, shape_alt, npyfile1, false));
+                load_to(val2.data(), fortran_order_alt, shape_alt, npyfile1, true);
+                CHECK(val2 == val1);
+            }
+
+            {
+                const std::vector<Size> shape_bad { 5, 5 };
+                std::vector<double> val2(25);
+                CHECK_THROWS(load_to(val2.data(), fortran_order, shape_bad, npyfile1, false));
+                CHECK_THROWS(load_to(val2.data(), fortran_order, shape_bad, npyfile1, true));
+            }
         }
     }
 

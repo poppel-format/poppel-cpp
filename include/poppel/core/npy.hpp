@@ -121,11 +121,15 @@ namespace poppel::npy {
             return length() * dtype.itemsize;
         }
     };
-    constexpr bool operator==(const Header& lhs, const Header& rhs) {
+    inline bool operator==(const Header& lhs, const Header& rhs) {
         return (lhs.dtype == rhs.dtype) && (lhs.fortran_order == rhs.fortran_order) && (lhs.shape == rhs.shape);
     }
-    constexpr bool operator!=(const Header& lhs, const Header& rhs) {
+    inline bool operator!=(const Header& lhs, const Header& rhs) {
         return !(lhs == rhs);
+    }
+    // Only checks if type and total length are the same. This allows save/load with array reshaping.
+    inline bool reshape_equal(const Header& lhs, const Header& rhs) {
+        return (lhs.dtype == rhs.dtype) && (lhs.length() == rhs.length());
     }
 
     struct NumpyArray {
@@ -479,9 +483,12 @@ namespace poppel::npy {
 
     // Core function to load all data to a pre-allocated buffer with known type and size.
     // Will check for header information match.
-    inline void load(std::istream& is, Header header, std::byte* data) {
+    inline void load(std::istream& is, Header header, std::byte* data, bool allow_reshape) {
         const auto loaded_header = load_header(is);
-        if (loaded_header != header) {
+        const bool header_match = allow_reshape
+            ? reshape_equal(loaded_header, header)
+            : (loaded_header == header);
+        if (!header_match) {
             throw std::runtime_error("header information mismatch");
         }
 
@@ -575,12 +582,12 @@ namespace poppel::npy {
     inline NumpyArray load(std::string_view filename) {
         return load(std::filesystem::path(filename));
     }
-    inline void load(const std::filesystem::path& filename, Header header, std::byte* data) {
+    inline void load(const std::filesystem::path& filename, Header header, std::byte* data, bool allow_reshape) {
         auto ifs = internal::open_file_for_load(filename);
-        load(ifs, header, data);
+        load(ifs, header, data, allow_reshape);
     }
-    inline void load(std::string_view filename, Header header, std::byte* data) {
-        load(std::filesystem::path(filename), header, data);
+    inline void load(std::string_view filename, Header header, std::byte* data, bool allow_reshape) {
+        load(std::filesystem::path(filename), header, data, allow_reshape);
     }
 
     // Load scalar data.

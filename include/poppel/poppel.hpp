@@ -28,19 +28,68 @@ namespace poppel {
             node_(std::move(node)), pstates_(pstates)
         {}
 
+        //------------------------------
+        // Accessors.
+        //------------------------------
+        auto filepath() const { return node_.path() / "data.npy"; }
+
+        //------------------------------
         // Dataset operations.
+        //------------------------------
+
+        // Load only the header of the dataset.
+        auto load_npy_header() const { return core::load_npy_header(filepath()); }
+
+        // Load the data into the variable.
+        // Most scalar types and common container types such as std::vector and std::string are supported.
         template< typename T >
         void load_to(T& val) const {
             core::assert_file_open(*pstates_);
             core::assert_is_node_dataset(node_);
-            core::load_to(val, node_.path() / "data.npy");
+            core::load_to(val, filepath());
         }
 
+        // Load the data into the buffer, with the knowledge of data type, shape, and index order.
+        //
+        // If reshaping is not allowed, the data type, shape and index order must match exactly with the file, or an exception will be thrown.
+        // If reshaping is allowed, the data type and total number of elements must match exactly with the file, or an exception will be thrown.
+        // To preview the data type (word size), shape and index order, use load_npy_header().
+        template< typename T >
+        void load_to(T* val, bool fortran_order, std::vector<Size> shape, bool allow_reshape = false) const {
+            core::assert_file_open(*pstates_);
+            core::assert_is_node_dataset(node_);
+            core::load_to(val, fortran_order, std::move(shape), filepath(), allow_reshape);
+        }
+
+        // Load the data into the buffer indicating 1D array, with the knowledge of data size.
+        //
+        // This function is simply the 1D special case to load_to() for multidimensional arrays.
+        template< typename T >
+        void load_to(T* val, Size size, bool allow_reshape = false) const {
+            this->load_to(val, false, std::vector { size }, allow_reshape);
+        }
+
+        // Save the data from the variable.
+        // Most scalar types and common container types such as std::vector and std::string are supported.
         template< typename T >
         void save_from(const T& val) const {
             core::assert_file_writable(*pstates_);
             core::assert_is_node_dataset(node_);
-            core::save_from(val, node_.path() / "data.npy");
+            core::save_from(val, filepath());
+        }
+
+        // Save the data using the buffer, with additional knowledge of data type, shape, and index order.
+        template< typename T >
+        void save_from(const T* val, bool fortran_order, std::vector<Size> shape) const {
+            core::assert_file_writable(*pstates_);
+            core::assert_is_node_dataset(node_);
+            core::save_from(val, fortran_order, std::move(shape), filepath());
+        }
+
+        // Save 1D array from the buffer, with the knowledge of data size.
+        template< typename T >
+        void save_from(const T* val, Size size) const {
+            this->save_from(val, false, std::vector { size });
         }
 
         // Attributes.
@@ -77,18 +126,20 @@ namespace poppel {
         // Dataset management.
         bool has_dataset(const std::filesystem::path& name) const;
         Dataset get_dataset(const std::filesystem::path& name) const;
-        template< typename T >
-        Dataset create_dataset(const std::filesystem::path& name, const T& data) const {
+        // Create a dataset by passing args to Dataset::save_from function.
+        template< typename... Args >
+        Dataset create_dataset(const std::filesystem::path& name, Args&&... args) const {
             Dataset dataset(core::create_node(node_, name, *pstates_, core::NodeType::Dataset), pstates_);
-            dataset.save_from(data);
+            dataset.save_from(std::forward< Args >(args)...);
             return dataset;
         }
-        template< typename T >
-        Dataset require_dataset(const std::filesystem::path& name, const T& default_data) const {
+        // If the dataset does not exist, create it by passing args to Dataset::save_from function.
+        template< typename... Args >
+        Dataset require_dataset(const std::filesystem::path& name, Args&&... args) const {
             if(has_node(node_, name, *pstates_, core::NodeType::Dataset)) {
                 return get_dataset(name);
             } else {
-                return create_dataset(name, default_data);
+                return create_dataset(name, std::forward< Args >(args)...);
             }
         }
         void delete_dataset(const std::filesystem::path& name) const;
@@ -184,10 +235,10 @@ namespace poppel {
 
         bool has_dataset(const std::filesystem::path& name) const { return group_.has_dataset(name); }
         auto get_dataset(const std::filesystem::path& name) const { return group_.get_dataset(name); }
-        template< typename T >
-        auto create_dataset(const std::filesystem::path& name, const T& data) const { return group_.create_dataset(name, data); }
-        template< typename T >
-        auto require_dataset(const std::filesystem::path& name, const T& default_data) const { return group_.require_dataset(name, default_data); }
+        template< typename... Args >
+        auto create_dataset(const std::filesystem::path& name, Args&&... args) const { return group_.create_dataset(name, std::forward<Args>(args)...); }
+        template< typename... Args >
+        auto require_dataset(const std::filesystem::path& name, Args&&... args) const { return group_.require_dataset(name, std::forward<Args>(args)...); }
         void delete_dataset(const std::filesystem::path& name) const { return group_.delete_dataset(name); }
 
     };
