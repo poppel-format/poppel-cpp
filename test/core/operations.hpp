@@ -173,13 +173,13 @@ TEST_CASE("Poppel operations", "[operation]") {
     }
 
     SECTION("Dataset operations.") {
-        DatasetMeta dm;
+        npy::Header header;
 
         // bool.
         save_from(true, npyfile1);
-        dm = load_npy_meta(npyfile1);
-        CHECK(dm.wordsize == sizeof(bool));
-        CHECK(dm.shape.size() == 0);
+        header = load_npy_header(npyfile1);
+        CHECK(header.dtype.itemsize == sizeof(bool));
+        CHECK(header.shape.size() == 0);
         {
             bool val = false;
             load_to(val, npyfile1);
@@ -188,9 +188,9 @@ TEST_CASE("Poppel operations", "[operation]") {
 
         // int.
         save_from(114514, npyfile1);
-        dm = load_npy_meta(npyfile1);
-        CHECK(dm.wordsize == sizeof(int));
-        CHECK(dm.shape.size() == 0);
+        header = load_npy_header(npyfile1);
+        CHECK(header.dtype.itemsize == sizeof(int));
+        CHECK(header.shape.size() == 0);
         {
             int val = 0;
             load_to(val, npyfile1);
@@ -199,9 +199,9 @@ TEST_CASE("Poppel operations", "[operation]") {
 
         // float.
         save_from(1.2345f, npyfile1);
-        dm = load_npy_meta(npyfile1);
-        CHECK(dm.wordsize == sizeof(float));
-        CHECK(dm.shape.size() == 0);
+        header = load_npy_header(npyfile1);
+        CHECK(header.dtype.itemsize == sizeof(float));
+        CHECK(header.shape.size() == 0);
         {
             float val = 0.0f;
             load_to(val, npyfile1);
@@ -210,9 +210,9 @@ TEST_CASE("Poppel operations", "[operation]") {
 
         // complex<double>.
         save_from(std::complex<double>(1.2345, 2.3456), npyfile1);
-        dm = load_npy_meta(npyfile1);
-        CHECK(dm.wordsize == sizeof(std::complex<double>));
-        CHECK(dm.shape.size() == 0);
+        header = load_npy_header(npyfile1);
+        CHECK(header.dtype.itemsize == sizeof(std::complex<double>));
+        CHECK(header.shape.size() == 0);
         {
             std::complex<double> val = 0.0;
             load_to(val, npyfile1);
@@ -223,10 +223,10 @@ TEST_CASE("Poppel operations", "[operation]") {
         {
             const std::vector<std::uint64_t> val1 { 1, 2, 3, 4, 5 };
             save_from(val1, npyfile1);
-            dm = load_npy_meta(npyfile1);
-            CHECK(dm.wordsize == sizeof(std::uint64_t));
-            REQUIRE(dm.shape.size() == 1);
-            CHECK(dm.shape[0] == 5);
+            header = load_npy_header(npyfile1);
+            CHECK(header.dtype.itemsize == sizeof(std::uint64_t));
+            REQUIRE(header.shape.size() == 1);
+            CHECK(header.shape[0] == 5);
 
             std::vector<std::uint64_t> val2;
             load_to(val2, npyfile1);
@@ -241,10 +241,10 @@ TEST_CASE("Poppel operations", "[operation]") {
                 std::complex<float>(5.0f, 6.0f),
             };
             save_from(val1, npyfile1);
-            dm = load_npy_meta(npyfile1);
-            CHECK(dm.wordsize == sizeof(std::complex<float>));
-            REQUIRE(dm.shape.size() == 1);
-            CHECK(dm.shape[0] == 3);
+            header = load_npy_header(npyfile1);
+            CHECK(header.dtype.itemsize == sizeof(std::complex<float>));
+            REQUIRE(header.shape.size() == 1);
+            CHECK(header.shape[0] == 3);
 
             std::vector<std::complex<float>> val2;
             load_to(val2, npyfile1);
@@ -255,10 +255,10 @@ TEST_CASE("Poppel operations", "[operation]") {
         {
             const std::string val1 = "Hallo/Hello/你好/こんにちは/안녕하세요";
             save_from(val1, npyfile1);
-            dm = load_npy_meta(npyfile1);
-            CHECK(dm.wordsize == sizeof(char));
-            REQUIRE(dm.shape.size() == 1);
-            CHECK(dm.shape[0] == val1.size());
+            header = load_npy_header(npyfile1);
+            CHECK(header.dtype.itemsize == sizeof(char));
+            REQUIRE(header.shape.size() == 1);
+            CHECK(header.shape[0] == val1.size());
 
             std::string val2;
             load_to(val2, npyfile1);
@@ -274,11 +274,11 @@ TEST_CASE("Poppel operations", "[operation]") {
             const std::vector<Size> shape { 3, 3 };
             save_from(val1.data(), fortran_order, shape, npyfile1);
 
-            dm = load_npy_meta(npyfile1);
-            CHECK(dm.wordsize == sizeof(double));
-            REQUIRE(dm.shape.size() == 2);
-            CHECK(dm.shape[0] == 3);
-            CHECK(dm.shape[1] == 3);
+            header = load_npy_header(npyfile1);
+            CHECK(header.dtype.itemsize == sizeof(double));
+            REQUIRE(header.shape.size() == 2);
+            CHECK(header.shape[0] == 3);
+            CHECK(header.shape[1] == 3);
 
             std::vector<double> val2(9);
             load_to(val2.data(), fortran_order, shape, npyfile1);

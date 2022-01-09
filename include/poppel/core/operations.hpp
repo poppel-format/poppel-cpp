@@ -55,7 +55,7 @@ namespace poppel::core {
     // DataSet operations.
     //----------------------------------
 
-    DatasetMeta load_npy_meta(const std::filesystem::path& dataset);
+    inline auto load_npy_header(const std::filesystem::path& path) { return npy::load_header(path); }
 
     // Loading data.
     //----------------------------------

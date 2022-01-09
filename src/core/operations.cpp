@@ -276,16 +276,6 @@ namespace poppel::core {
     // Dataset operations.
     //----------------------------------
 
-    DatasetMeta load_npy_meta(const std::filesystem::path& npyfile) {
-        npy::Header header = npy::load_header(npyfile);
-        DatasetMeta meta;
-        meta.shape         = header.shape;
-        meta.wordsize      = header.dtype.itemsize;
-        meta.fortran_order = header.fortran_order;
-        return meta;
-    }
-
-
     void load_to(std::string& val, const std::filesystem::path& path) { npy::load(path, val); }
 
     void save_from(const std::string& val, const std::filesystem::path& path) { npy::save(path, val); }

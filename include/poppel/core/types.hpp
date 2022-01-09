@@ -84,13 +84,6 @@ namespace poppel {
         };
 
 
-        struct DatasetMeta {
-            std::vector<Size> shape;
-            Size              wordsize = 1;
-            // Whether the first dimension is the fastest changing one, also known as column major for matrix.
-            bool              fortran_order = false;
-        };
-
         struct Attribute {
             std::filesystem::path jsonfile;
         };
