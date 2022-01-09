@@ -26,6 +26,11 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
 endif()
 
+# Dependencies.
+find_package(nlohmann_json CONFIG REQUIRED)
+target_link_libraries(poppel PRIVATE nlohmann_json nlohmann_json::nlohmann_json)
+
+
 if(poppel_install)
     install(DIRECTORY ${POPPEL_INCLUDE_DIR} TYPE INCLUDE)
 

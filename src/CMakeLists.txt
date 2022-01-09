@@ -9,6 +9,3 @@ target_include_directories(poppel PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>
     $<INSTALL_INTERFACE:include>
 )
-
-find_package(nlohmann_json CONFIG REQUIRED)
-target_link_libraries(poppel PRIVATE nlohmann_json nlohmann_json::nlohmann_json)
